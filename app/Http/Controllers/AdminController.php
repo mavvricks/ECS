@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Booking;
+use App\Models\MenuItem;
 use App\Models\PricingOverride;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -233,5 +234,79 @@ class AdminController extends Controller
             'topSellers'    => $topSellers,
             'peakSeasons'   => $peakSeasons,
         ]);
+    }
+
+    // ==========================================
+    // 5. Custom Menu Items CRUD
+    // ==========================================
+
+    public function getMenuItems()
+    {
+        $items = MenuItem::orderBy('category')->orderBy('name')->get();
+        return response()->json($items);
+    }
+
+    public function createMenuItem(Request $request)
+    {
+        $request->validate([
+            'name'          => 'required|string|max:255',
+            'category'      => 'required|in:starters,mains,sides,desserts,drinks',
+            'cost_per_head' => 'required|numeric|min:0',
+            'price_adj'     => 'nullable|numeric|min:0',
+            'image'         => 'nullable|string',
+            'description'   => 'nullable|string',
+            'is_best_seller' => 'nullable|boolean',
+        ]);
+
+        $dishId = 'custom_' . strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $request->name)) . '_' . time();
+
+        $item = MenuItem::create([
+            'dish_id'        => $dishId,
+            'name'           => $request->name,
+            'category'       => $request->category,
+            'cost_per_head'  => $request->cost_per_head,
+            'price_adj'      => $request->price_adj ?? 0,
+            'image'          => $request->image ?? 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=400',
+            'description'    => $request->description ?? '',
+            'is_best_seller' => $request->is_best_seller ?? false,
+        ]);
+
+        return response()->json($item, 201);
+    }
+
+    public function updateMenuItem(Request $request, int $id)
+    {
+        $item = MenuItem::find($id);
+        if (!$item) {
+            return response()->json(['error' => 'Menu item not found'], 404);
+        }
+
+        $request->validate([
+            'name'          => 'nullable|string|max:255',
+            'category'      => 'nullable|in:starters,mains,sides,desserts,drinks',
+            'cost_per_head' => 'nullable|numeric|min:0',
+            'price_adj'     => 'nullable|numeric|min:0',
+            'image'         => 'nullable|string',
+            'description'   => 'nullable|string',
+            'is_best_seller' => 'nullable|boolean',
+        ]);
+
+        $item->update($request->only([
+            'name', 'category', 'cost_per_head', 'price_adj',
+            'image', 'description', 'is_best_seller',
+        ]));
+
+        return response()->json($item);
+    }
+
+    public function deleteMenuItem(int $id)
+    {
+        $item = MenuItem::find($id);
+        if (!$item) {
+            return response()->json(['error' => 'Menu item not found'], 404);
+        }
+
+        $item->delete();
+        return response()->json(['message' => 'Menu item deleted successfully']);
     }
 }

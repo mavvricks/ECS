@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { DISHES } from '../../data/mockData';
+import { fetchCustomMenuItems, getMergedDishes } from '../../utils/menuUtils';
 
 const MenuCustomizer = ({ bookingData, updateBooking, onNext, onBack }) => {
     const { selectedPackage, customMenu, pax, budget } = bookingData;
@@ -24,6 +25,7 @@ const MenuCustomizer = ({ bookingData, updateBooking, onNext, onBack }) => {
     // PRICING CONTROL STATE
     // ==========================================
     const [pricingOverrides, setPricingOverrides] = useState({});
+    const [customItems, setCustomItems] = useState([]);
 
     // Initial load: Try to map previous selections if existing, else empty
     useEffect(() => {
@@ -39,7 +41,11 @@ const MenuCustomizer = ({ bookingData, updateBooking, onNext, onBack }) => {
             }
         };
         fetchOverrides();
+        fetchCustomMenuItems().then(items => setCustomItems(items));
     }, []);
+
+    // Merged static + custom dishes
+    const mergedDishes = useMemo(() => getMergedDishes(customItems), [customItems]);
 
     // Price Calculation Logic
     useEffect(() => {
@@ -60,10 +66,9 @@ const MenuCustomizer = ({ bookingData, updateBooking, onNext, onBack }) => {
             const limit = selectedPackage.menuStructure[category];
 
             selectedIds.forEach((id, index) => {
-                const dish = DISHES[category].find(d => d.id === id);
+                const dish = mergedDishes[category]?.find(d => d.id === id);
                 if (dish) {
-                    const overrideId = `dish_${dish.id}`;
-                    const customPrice = pricingOverrides[overrideId] !== undefined ? pricingOverrides[overrideId] : dish.priceAdj;
+                    const customPrice = dish.priceAdj || 0;
 
                     // 1. Always add the dish's specific price adjustment (e.g., Roast Beef +150)
                     if (customPrice > 0) {
@@ -129,11 +134,14 @@ const MenuCustomizer = ({ bookingData, updateBooking, onNext, onBack }) => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {[...DISHES[category]]
+                    {[...(mergedDishes[category] || [])]
                         .sort((a, b) => {
+                            const customPriceA = a.priceAdj || 0;
+                            const customPriceB = b.priceAdj || 0;
+
                             // Best sellers first, then base price (0) before premium, then by price ascending
                             if (a.isBestSeller !== b.isBestSeller) return b.isBestSeller ? 1 : -1;
-                            return a.priceAdj - b.priceAdj;
+                            return customPriceA - customPriceB;
                         })
                         .map(dish => {
                             const isSelected = selectedIds.includes(dish.id);
@@ -303,7 +311,17 @@ const MenuCustomizer = ({ bookingData, updateBooking, onNext, onBack }) => {
                         onClick={() => {
                             const fullMenuSelection = {};
                             Object.keys(selections).forEach(cat => {
-                                fullMenuSelection[cat] = selections[cat].map(id => DISHES[cat].find(d => d.id === id));
+                                fullMenuSelection[cat] = selections[cat].map(id => {
+                                    const dish = mergedDishes[cat]?.find(d => d.id === id);
+                                    if (!dish) return null;
+                                    const overrideId = `dish_${dish.id}`;
+                                    const customCost = pricingOverrides[overrideId] !== undefined ? pricingOverrides[overrideId] : dish.costPerHead;
+                                    return {
+                                        ...dish,
+                                        priceAdj: dish.priceAdj || 0,
+                                        costPerHead: customCost
+                                    };
+                                });
                             });
 
                             updateBooking({ customMenu: fullMenuSelection, totalCost: totalPrice });

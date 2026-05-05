@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
 import { DISHES } from '../../data/mockData';
+import { fetchCustomMenuItems, getMergedDishes } from '../../utils/menuUtils';
 
 const MenuGallery = () => {
     const { auth } = usePage().props;
@@ -9,10 +10,26 @@ const MenuGallery = () => {
     const [priceFilter, setPriceFilter] = useState('all');
     const [sortOrder, setSortOrder] = useState('default');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [pricingOverrides, setPricingOverrides] = useState({});
+    const [customItems, setCustomItems] = useState([]);
+
+    useEffect(() => {
+        fetch('/api/pricing')
+            .then(res => res.json())
+            .then(data => setPricingOverrides(data.overrides || {}))
+            .catch(console.error);
+
+        fetchCustomMenuItems().then(items => setCustomItems(items));
+    }, []);
+
+    // Merged static + custom dishes
+    const mergedDishes = useMemo(() => getMergedDishes(customItems), [customItems]);
 
     const navLinks = [
         { name: 'Home', path: '/' },
         { name: 'Menu', path: '/menu' },
+        { name: 'About', path: '/about' },
+        { name: 'Contact', path: '/contact' },
     ];
 
     const categories = [
@@ -40,13 +57,19 @@ const MenuGallery = () => {
 
     // Flatten dishes for "All" view or filter by category
     const displayedDishes = useMemo(() => {
+        const getAdjustedDish = (item, cat) => ({
+            ...item,
+            category: cat,
+            costPerHead: pricingOverrides[`dish_${item.id}`] !== undefined ? pricingOverrides[`dish_${item.id}`] : item.costPerHead,
+        });
+
         let dishes;
         if (activeCategory === 'all') {
-            dishes = Object.entries(DISHES).reduce((acc, [cat, items]) => {
-                return [...acc, ...items.map(item => ({ ...item, category: cat }))];
+            dishes = Object.entries(mergedDishes).reduce((acc, [cat, items]) => {
+                return [...acc, ...items.map(item => getAdjustedDish(item, cat))];
             }, []);
         } else {
-            dishes = DISHES[activeCategory].map(item => ({ ...item, category: activeCategory }));
+            dishes = (mergedDishes[activeCategory] || []).map(item => getAdjustedDish(item, activeCategory));
         }
 
         // Apply price filter
@@ -65,12 +88,21 @@ const MenuGallery = () => {
         }
 
         return dishes;
-    }, [activeCategory, priceFilter, sortOrder]);
+    }, [activeCategory, priceFilter, sortOrder, pricingOverrides, mergedDishes]);
 
-    const bestSellers = Object.values(DISHES).flat().filter(d => d.isBestSeller);
+    const bestSellers = useMemo(() => {
+        return Object.entries(mergedDishes).reduce((acc, [cat, items]) => {
+            const sellers = items.filter(d => d.isBestSeller).map(item => ({
+                ...item,
+                category: cat,
+                costPerHead: pricingOverrides[`dish_${item.id}`] !== undefined ? pricingOverrides[`dish_${item.id}`] : item.costPerHead,
+            }));
+            return [...acc, ...sellers];
+        }, []);
+    }, [pricingOverrides, mergedDishes]);
 
     // Get price range for display
-    const allPrices = Object.values(DISHES).flat().map(d => d.costPerHead);
+    const allPrices = displayedDishes.map(d => d.costPerHead);
     const minPrice = Math.min(...allPrices);
     const maxPrice = Math.max(...allPrices);
 

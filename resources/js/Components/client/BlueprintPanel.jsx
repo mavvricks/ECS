@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { DISHES } from '../../data/mockData';
+import { fetchCustomMenuItems, getMergedDishes } from '../../utils/menuUtils';
 
 const CATEGORY_LABELS = {
     starters: 'Starter',
@@ -20,20 +21,44 @@ const BlueprintPanel = ({ bookingData, currentStep }) => {
         isHighRise,
     } = bookingData;
 
+    const [pricingOverrides, setPricingOverrides] = useState({});
+    const [customItems, setCustomItems] = useState([]);
+
+    useEffect(() => {
+        const fetchOverrides = async () => {
+            try {
+                const res = await fetch('/api/pricing');
+                if (res.ok) {
+                    const data = await res.json();
+                    setPricingOverrides(data.overrides || {});
+                }
+            } catch (error) {
+                console.error("Error fetching pricing overrides:", error);
+            }
+        };
+        fetchOverrides();
+        fetchCustomMenuItems().then(items => setCustomItems(items));
+    }, []);
+
+    // Merged static + custom dishes
+    const mergedDishes = useMemo(() => getMergedDishes(customItems), [customItems]);
+
     // Calculate menu total from selected dishes
     const menuTotal = useMemo(() => {
         let total = 0;
         Object.keys(selectedDishes).forEach(category => {
             const dishIds = selectedDishes[category] || [];
             dishIds.forEach(id => {
-                const dish = DISHES[category]?.find(d => d.id === id);
+                const dish = mergedDishes[category]?.find(d => d.id === id);
                 if (dish) {
-                    total += dish.costPerHead * (pax || 0);
+                    const overrideId = `dish_${dish.id}`;
+                    const customCost = pricingOverrides[overrideId] !== undefined ? pricingOverrides[overrideId] : dish.costPerHead;
+                    total += customCost * (pax || 0);
                 }
             });
         });
         return total;
-    }, [selectedDishes, pax]);
+    }, [selectedDishes, pax, pricingOverrides]);
 
     // Calculate surcharges
     const transportFee = useMemo(() => {
@@ -153,7 +178,9 @@ const BlueprintPanel = ({ bookingData, currentStep }) => {
                                                 {dishIds.map(id => {
                                                     const dish = DISHES[category]?.find(d => d.id === id);
                                                     if (!dish) return null;
-                                                    const cost = dish.costPerHead * (pax || 0);
+                                                    const overrideId = `dish_${dish.id}`;
+                                                    const customCost = pricingOverrides[overrideId] !== undefined ? pricingOverrides[overrideId] : dish.costPerHead;
+                                                    const cost = customCost * (pax || 0);
                                                     return (
                                                         <div key={id} className="flex justify-between items-center text-sm animate-fadeIn">
                                                             <span className="text-gray-300 truncate mr-2">

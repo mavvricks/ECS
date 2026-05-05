@@ -26,8 +26,8 @@ const DashboardClient = () => {
         { name: 'Home', path: '/dashboard/client' },
         { name: 'Book', path: '/dashboard/client/booking' },
         { name: 'Menu', path: '/dashboard/client/menu' },
-        { name: 'About', path: '/dashboard/client#about' }, // Anchor link for now
-        { name: 'Contact', path: '/dashboard/client#contact' },
+        { name: 'About', path: '/about' },
+        { name: 'Contact', path: '/contact' },
     ];
 
     return (

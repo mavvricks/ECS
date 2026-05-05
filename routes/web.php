@@ -24,6 +24,8 @@ use Inertia\Inertia;
 // ─── Public Routes ───
 
 Route::get('/', fn () => Inertia::render('LandingPage'))->name('home');
+Route::get('/about', fn () => Inertia::render('About'))->name('about');
+Route::get('/contact', fn () => Inertia::render('Contact'))->name('contact');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', fn () => Inertia::render('Login'))->name('login');
@@ -36,6 +38,9 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->n
 
 // Public pricing endpoint (used by menu components)
 Route::get('/api/pricing', [AdminController::class, 'getPricingOverrides']);
+
+// Public custom menu items endpoint (used by menu components to merge with static catalog)
+Route::get('/api/menu-items', [AdminController::class, 'getMenuItems']);
 
 // Public food tasting (guests can submit without auth)
 Route::post('/api/food-tasting', [FoodTastingController::class, 'store']);
@@ -107,4 +112,9 @@ Route::middleware(['auth', 'role:Admin'])->group(function () {
     Route::post('/api/admin/pricing', [AdminController::class, 'updatePricingOverride']);
     Route::post('/api/admin/bookings/{id}/discount', [AdminController::class, 'applyDiscount']);
     Route::get('/api/admin/analytics', [AdminController::class, 'getAnalytics']);
+
+    // Menu items CRUD
+    Route::post('/api/admin/menu-items', [AdminController::class, 'createMenuItem']);
+    Route::put('/api/admin/menu-items/{id}', [AdminController::class, 'updateMenuItem']);
+    Route::delete('/api/admin/menu-items/{id}', [AdminController::class, 'deleteMenuItem']);
 });

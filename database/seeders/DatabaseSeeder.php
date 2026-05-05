@@ -17,7 +17,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $defaultUsers = [
-            ['username' => 'superadmin', 'role' => 'Admin'],
+            ['username' => 'admin',      'role' => 'Admin'],
             ['username' => 'marketing',  'role' => 'Marketing'],
             ['username' => 'accounting', 'role' => 'Accounting'],
             ['username' => 'client',     'role' => 'Client'],

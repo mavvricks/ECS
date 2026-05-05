@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { DISHES, CURATED_PACKAGES } from '../../data/mockData';
+import { fetchCustomMenuItems, getMergedDishes } from '../../utils/menuUtils';
 
 const TabIcon = ({ type, className = 'w-4 h-4' }) => {
     const icons = {
@@ -36,6 +37,7 @@ const MenuBuilder = ({ bookingData, updateBooking, onNext, onBack }) => {
 
     // Pricing overrides from server
     const [pricingOverrides, setPricingOverrides] = useState({});
+    const [customItems, setCustomItems] = useState([]);
 
     useEffect(() => {
         const fetchOverrides = async () => {
@@ -50,7 +52,11 @@ const MenuBuilder = ({ bookingData, updateBooking, onNext, onBack }) => {
             }
         };
         fetchOverrides();
+        fetchCustomMenuItems().then(items => setCustomItems(items));
     }, []);
+
+    // Merged static + custom dishes
+    const mergedDishes = useMemo(() => getMergedDishes(customItems), [customItems]);
 
     // Restore existing selections if coming back
     useEffect(() => {
@@ -80,7 +86,7 @@ const MenuBuilder = ({ bookingData, updateBooking, onNext, onBack }) => {
         let total = 0;
         Object.keys(selections).forEach(category => {
             selections[category].forEach(id => {
-                const dish = DISHES[category]?.find(d => d.id === id);
+                const dish = mergedDishes[category]?.find(d => d.id === id);
                 if (dish) total += getDishCost(dish) * (pax || 0);
             });
         });
@@ -135,7 +141,7 @@ const MenuBuilder = ({ bookingData, updateBooking, onNext, onBack }) => {
         // Build sorted dish lists per category (most expensive first to maximize budget usage)
         const categoryQueues = {};
         categories.forEach(cat => {
-            categoryQueues[cat] = [...(DISHES[cat] || [])]
+            categoryQueues[cat] = [...(mergedDishes[cat] || [])]
                 .map(dish => ({
                     ...dish,
                     category: cat,
@@ -187,7 +193,7 @@ const MenuBuilder = ({ bookingData, updateBooking, onNext, onBack }) => {
         const totalPicked = Object.values(newSelections).reduce((sum, arr) => sum + arr.length, 0);
         if (totalPicked === 0) {
             categories.forEach(cat => {
-                const sorted = [...(DISHES[cat] || [])].sort((a, b) => getDishCost(a) - getDishCost(b));
+                const sorted = [...(mergedDishes[cat] || [])].sort((a, b) => getDishCost(a) - getDishCost(b));
                 if (sorted.length > 0) {
                     const cheapest = sorted[0];
                     const cost = getDishCost(cheapest) * pax;
@@ -231,10 +237,17 @@ const MenuBuilder = ({ bookingData, updateBooking, onNext, onBack }) => {
         const totalDishes = Object.values(selections).reduce((sum, arr) => sum + arr.length, 0);
         if (totalDishes === 0) return;
 
-        // Build full menu selection with dish objects for submission
+        // Build full menu selection with dish objects for submission, including any pricing overrides
         const fullMenuSelection = {};
         Object.keys(selections).forEach(cat => {
-            fullMenuSelection[cat] = selections[cat].map(id => DISHES[cat].find(d => d.id === id));
+            fullMenuSelection[cat] = selections[cat].map(id => {
+                const dish = mergedDishes[cat].find(d => d.id === id);
+                return {
+                    ...dish,
+                    costPerHead: getDishCost(dish),
+                    priceAdj: getDishCost(dish)
+                };
+            });
         });
 
         updateBooking({
@@ -448,7 +461,7 @@ const MenuBuilder = ({ bookingData, updateBooking, onNext, onBack }) => {
                             let pkgTotal = 0;
                             Object.keys(pkg.prefilledDishes).forEach(category => {
                                 pkg.prefilledDishes[category].forEach(id => {
-                                    const dish = DISHES[category]?.find(d => d.id === id);
+                                    const dish = mergedDishes[category]?.find(d => d.id === id);
                                     if (dish) pkgTotal += getDishCost(dish);
                                 });
                             });
@@ -556,7 +569,7 @@ const MenuBuilder = ({ bookingData, updateBooking, onNext, onBack }) => {
             {/* Dish Grid */}
             <div className="flex-1 overflow-y-auto max-h-[450px] pr-2 custom-scrollbar">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {[...DISHES[activeTab]]
+                    {[...(mergedDishes[activeTab] || [])]
                         .sort((a, b) => {
                             if (a.isBestSeller !== b.isBestSeller) return b.isBestSeller ? 1 : -1;
                             return getDishCost(a) - getDishCost(b);

@@ -55,8 +55,8 @@ const LandingPage = () => {
     const navLinks = [
         { name: 'Home', path: '/' },
         { name: 'Menu', path: user ? '/menu' : '/register' },
-        { name: 'About', path: '#about' },
-        { name: 'Contact', path: '#contact' },
+        { name: 'About', path: '/about' },
+        { name: 'Contact', path: '/contact' },
     ];
 
     return (

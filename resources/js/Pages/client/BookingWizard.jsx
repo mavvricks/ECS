@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { router } from '@inertiajs/react';
+import { router, Link } from '@inertiajs/react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import CalendarView from '../../components/client/CalendarView';
@@ -14,6 +14,7 @@ import Modal from '../../components/common/Modal';
 const BookingWizard = () => {
     const { user } = useAuth();
     const [currentStep, setCurrentStep] = useState(1);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [bookingData, setBookingData] = useState({
         // Step 1
         date: null,
@@ -175,9 +176,132 @@ const BookingWizard = () => {
         { step: 6, label: "Tasting" }
     ];
 
+    const navLinks = [
+        { name: 'Home', path: '/' },
+        { name: 'Menu', path: '/menu' },
+        { name: 'About', path: '/about' },
+        { name: 'Contact', path: '/contact' },
+    ];
+
     return (
-        <div className="min-h-screen bg-gray-50 py-8 pt-24">
-            <Modal
+        <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
+            {/* Navbar */}
+            <nav className="bg-red-900 shadow-lg py-4 relative z-50">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex justify-between items-center">
+                        <div className="flex-shrink-0 flex items-center">
+                            <Link href="/" className="text-2xl font-bold font-display text-white tracking-wide italic">
+                                Eloquente Catering
+                            </Link>
+                        </div>
+
+                        {/* Desktop Menu */}
+                        <div className="hidden md:flex items-center space-x-8">
+                            {navLinks.map((link) => (
+                                <Link
+                                    key={link.name}
+                                    href={link.path}
+                                    className="text-white hover:text-yellow-400 font-medium text-sm uppercase tracking-wider transition-colors"
+                                >
+                                    {link.name}
+                                </Link>
+                            ))}
+
+                            <div className="border-l border-white/30 h-6 mx-4"></div>
+
+                            {user ? (
+                                <div className="flex items-center space-x-4">
+                                    <span className="text-white text-sm mr-2">Hello, {user.username}</span>
+                                    <Link
+                                        href={
+                                            user.role === 'Client' ? '/dashboard/client' :
+                                                user.role === 'Marketing' ? '/dashboard/ops' :
+                                                    user.role === 'Accounting' ? '/dashboard/finance' :
+                                                        (user.role === 'Admin') ? '/dashboard/admin' : '/'
+                                        }
+                                        className="text-white hover:text-yellow-400 text-sm font-medium uppercase tracking-wider"
+                                    >
+                                        Dashboard
+                                    </Link>
+                                    <button
+                                        onClick={() => router.post('/logout')}
+                                        className="bg-white/10 hover:bg-white/20 text-white font-bold py-2 px-6 rounded-full text-xs uppercase tracking-wider transition-all border border-white/30"
+                                    >
+                                        Logout
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="flex items-center space-x-4">
+                                    <Link href="/login" className="text-white hover:text-yellow-400 text-sm font-medium uppercase tracking-wider">
+                                        Login
+                                    </Link>
+                                    <Link
+                                        href="/register"
+                                        className="bg-yellow-500 hover:bg-yellow-400 text-red-900 font-bold py-2 px-6 rounded-full text-xs uppercase tracking-wider transition-transform transform hover:scale-105 shadow-lg"
+                                    >
+                                        Register
+                                    </Link>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Mobile Menu Button */}
+                        <div className="md:hidden flex items-center">
+                            <button
+                                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                                className="text-white hover:text-gray-200 focus:outline-none"
+                            >
+                                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    {isMobileMenuOpen ? (
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                    ) : (
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+                                    )}
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Mobile Menu Dropdown */}
+                {isMobileMenuOpen && (
+                    <div className="md:hidden bg-red-800 absolute top-full left-0 w-full shadow-xl">
+                        <div className="px-4 pt-2 pb-4 space-y-2">
+                            {navLinks.map((link) => (
+                                <Link
+                                    key={link.name}
+                                    href={link.path}
+                                    onClick={() => setIsMobileMenuOpen(false)}
+                                    className="block text-white hover:bg-red-700 px-3 py-2 rounded-md text-base font-medium"
+                                >
+                                    {link.name}
+                                </Link>
+                            ))}
+                            {user ? (
+                                <>
+                                    <Link href="/dashboard/client" className="block text-white hover:bg-red-700 px-3 py-2 rounded-md text-base font-medium" onClick={() => setIsMobileMenuOpen(false)}>
+                                        Dashboard
+                                    </Link>
+                                    <button
+                                        onClick={() => { router.post('/logout'); setIsMobileMenuOpen(false); }}
+                                        className="w-full text-left text-white hover:bg-red-700 px-3 py-2 rounded-md text-base font-medium"
+                                    >
+                                        Logout
+                                    </button>
+                                </>
+                            ) : (
+                                <div className="mt-4 flex flex-col space-y-2">
+                                    <Link href="/login" className="block text-center text-white border border-white/30 px-3 py-2 rounded-md" onClick={() => setIsMobileMenuOpen(false)}>Login</Link>
+                                    <Link href="/register" className="block text-center bg-yellow-500 text-red-900 px-3 py-2 rounded-md font-bold" onClick={() => setIsMobileMenuOpen(false)}>Register</Link>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </nav>
+
+            <div className="flex-grow py-8 pt-12">
+                <Modal
                 isOpen={modal.isOpen}
                 onClose={closeModal}
                 title={modal.title}
@@ -188,6 +312,14 @@ const BookingWizard = () => {
             />
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                {/* Back to Home Button */}
+                <div className="mb-6">
+                    <Link href="/" className="inline-flex items-center text-sm font-medium text-gray-500 hover:text-red-900 transition-colors">
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                        Back to Home
+                    </Link>
+                </div>
+
                 {/* Stepper Progress Bar */}
                 <div className="mb-12 max-w-4xl mx-auto">
                     <div className="relative flex justify-between items-center w-full">
@@ -286,6 +418,15 @@ const BookingWizard = () => {
                     />
                 </div>
             </div>
+            </div>
+            
+            {/* Footer */}
+            <footer className="bg-gray-900 text-white py-8 mt-auto">
+                <div className="max-w-7xl mx-auto px-4 text-center">
+                    <p className="font-display font-bold text-lg mb-2">Eloquente Catering</p>
+                    <p className="text-gray-400 text-sm">© 2026 All rights reserved.</p>
+                </div>
+            </footer>
         </div>
     );
 };

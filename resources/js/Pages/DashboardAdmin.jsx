@@ -25,6 +25,17 @@ const DashboardAdmin = () => {
     const [activeMenuCategory, setActiveMenuCategory] = useState('starters');
 
     // ==========================================
+    // CUSTOM MENU ITEMS STATE
+    // ==========================================
+    const [customMenuItems, setCustomMenuItems] = useState([]);
+    const [menuItemModal, setMenuItemModal] = useState({ open: false, mode: 'add', data: null });
+    const [menuItemForm, setMenuItemForm] = useState({
+        name: '', category: 'starters', cost_per_head: '', price_adj: '0',
+        image: '', description: '', is_best_seller: false
+    });
+    const [menuItemFormLoading, setMenuItemFormLoading] = useState(false);
+
+    // ==========================================
     // DISCOUNTS STATE
     // ==========================================
     const [bookings, setBookings] = useState([]);
@@ -99,6 +110,7 @@ const DashboardAdmin = () => {
             fetchEmployees();
         } else if (activeTab === 'configuration') {
             fetchPricingOverrides();
+            fetchCustomMenuItems();
         } else if (activeTab === 'dashboard' || activeTab === 'analytics') {
             fetchAnalytics();
         } else if (activeTab === 'bookings') {
@@ -173,6 +185,95 @@ const DashboardAdmin = () => {
             console.error(error);
             showToast("Network error", 'error');
         }
+    };
+
+    // ==========================================
+    // CUSTOM MENU ITEMS HANDLERS
+    // ==========================================
+
+    const fetchCustomMenuItems = async () => {
+        try {
+            const res = await fetch('/api/menu-items');
+            if (res.ok) {
+                const data = await res.json();
+                setCustomMenuItems(data);
+            }
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    const openMenuItemModal = () => {
+        setMenuItemForm({
+            name: '', category: activeMenuCategory, cost_per_head: '', price_adj: '0',
+            image: '', description: '', is_best_seller: false
+        });
+        setMenuItemModal({ open: true, mode: 'add', data: null });
+    };
+
+    const handleMenuItemSubmit = async (e) => {
+        e.preventDefault();
+        setMenuItemFormLoading(true);
+        try {
+            const res = await fetch('/api/admin/menu-items', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ...menuItemForm,
+                    cost_per_head: parseFloat(menuItemForm.cost_per_head) || 0,
+                    price_adj: parseFloat(menuItemForm.price_adj) || 0,
+                })
+            });
+
+            if (res.ok) {
+                showToast('Menu item added successfully');
+                setMenuItemModal({ open: false, mode: 'add', data: null });
+                fetchCustomMenuItems();
+            } else {
+                const err = await res.json();
+                showToast(err.message || 'Failed to add menu item', 'error');
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('Network error', 'error');
+        } finally {
+            setMenuItemFormLoading(false);
+        }
+    };
+
+    const handleDeleteMenuItem = async (id) => {
+        if (!confirm('Are you sure you want to delete this menu item?')) return;
+        try {
+            const res = await fetch(`/api/admin/menu-items/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                showToast('Menu item deleted');
+                fetchCustomMenuItems();
+            } else {
+                showToast('Failed to delete menu item', 'error');
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('Network error', 'error');
+        }
+    };
+
+    // Merge static DISHES with custom DB items for the active category
+    const getMergedDishes = (category) => {
+        const staticItems = DISHES[category] || [];
+        const dbItems = customMenuItems
+            .filter(item => item.category === category)
+            .map(item => ({
+                id: item.dish_id,
+                _dbId: item.id,
+                name: item.name,
+                costPerHead: parseFloat(item.cost_per_head),
+                priceAdj: parseFloat(item.price_adj),
+                image: item.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=400',
+                isBestSeller: item.is_best_seller,
+                description: item.description || '',
+                _isCustom: true,
+            }));
+        return [...staticItems, ...dbItems];
     };
 
     const fetchAnalytics = async () => {
@@ -605,7 +706,10 @@ const DashboardAdmin = () => {
                     {activeTab === 'configuration' && (
                         <div className="animate-fadeIn">
                             <div className="flex justify-end mb-6">
-                                <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm flex items-center gap-2 transition-colors">
+                                <button
+                                    onClick={openMenuItemModal}
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm flex items-center gap-2 transition-colors"
+                                >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                                     Add New Menu Option
                                 </button>
@@ -639,55 +743,71 @@ const DashboardAdmin = () => {
                                                 </nav>
                                             </div>
                                             <div className="p-6 bg-gray-50">
-                                                {Object.entries(DISHES).filter(([category]) => category === activeMenuCategory).map(([category, items]) => (
-                                                    <div key={category} className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm animate-fadeIn">
+                                                    <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm animate-fadeIn">
                                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                                            {items.map(item => {
+                                                            {getMergedDishes(activeMenuCategory).map(item => {
                                                                 const overrideId = `dish_${item.id}`;
-                                                                const currentPrice = pricingOverrides[overrideId] !== undefined ? pricingOverrides[overrideId] : (item.priceAdj || 0);
+                                                                const currentPrice = pricingOverrides[overrideId] !== undefined ? pricingOverrides[overrideId] : item.costPerHead;
 
                                                                 return (
-                                                                    <div key={item.id} className="p-4 border border-gray-100 rounded-xl bg-gray-50/50 flex flex-col hover:bg-gray-50 hover:border-indigo-100 transition-colors">
-                                                                        <div className="flex items-start justify-between mb-4">
-                                                                            <div className="flex-1 pr-3">
-                                                                                <h5 className="font-semibold text-gray-900 text-sm leading-tight">{item.name}</h5>
-                                                                                {pricingOverrides[overrideId] !== undefined && (
-                                                                                    <span className="inline-block mt-1 text-[10px] text-indigo-600 font-bold uppercase tracking-wider">Custom Price</span>
-                                                                                )}
-                                                                            </div>
-                                                                            <div className="w-12 h-12 rounded-lg bg-gray-200 overflow-hidden flex-shrink-0 relative border border-gray-100 shadow-sm">
-                                                                                <img src={item.image} alt={item.name} className="object-cover w-full h-full" />
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className="mt-auto flex items-center justify-between gap-3 bg-white p-2 rounded-lg border border-gray-100">
-                                                                            <div className="flex-1 flex items-center pl-2">
-                                                                                <span className="text-gray-400 font-bold text-sm mr-2">+₱</span>
-                                                                                <input
-                                                                                    type="number"
-                                                                                    id={`price_input_${item.id}`}
-                                                                                    defaultValue={currentPrice}
-                                                                                    className="w-full py-1.5 text-sm font-bold text-gray-900 bg-transparent outline-none"
-                                                                                />
-                                                                            </div>
+                                                                    <div key={item.id} className="overflow-hidden border border-gray-200 rounded-2xl bg-white flex flex-col hover:shadow-xl hover:-translate-y-1 transition-all duration-300 shadow-md relative group">
+                                                                        {/* Delete button for custom items */}
+                                                                        {item._isCustom && (
                                                                             <button
-                                                                                onClick={() => {
-                                                                                    const el = document.getElementById(`price_input_${item.id}`);
-                                                                                    handlePricingUpdate('dish', item.id, el.value);
-                                                                                }}
-                                                                                className="px-4 py-1.5 bg-white border border-gray-200 hover:border-indigo-300 hover:text-indigo-600 text-gray-700 font-bold text-xs rounded-md transition-colors shadow-sm"
+                                                                                onClick={() => handleDeleteMenuItem(item._dbId)}
+                                                                                className="absolute top-3 left-3 z-20 bg-red-600 hover:bg-red-700 text-white p-1.5 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                                                                                title="Delete this menu item"
                                                                             >
-                                                                                Save
+                                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                                                             </button>
+                                                                        )}
+                                                                        <div className="h-48 w-full relative">
+                                                                            <img src={item.image} alt={item.name} className="object-cover w-full h-full" />
+                                                                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                                                                            {item._isCustom && (
+                                                                                <div className="absolute top-3 right-3 bg-emerald-600 text-white text-[10px] font-bold px-2.5 py-1.5 rounded shadow-lg uppercase tracking-wider border border-emerald-400">
+                                                                                    Custom Item
+                                                                                </div>
+                                                                            )}
+                                                                            {!item._isCustom && pricingOverrides[overrideId] !== undefined && (
+                                                                                <div className="absolute top-3 right-3 bg-indigo-600 text-white text-[10px] font-bold px-2.5 py-1.5 rounded shadow-lg uppercase tracking-wider border border-indigo-400">
+                                                                                    Custom Price
+                                                                                </div>
+                                                                            )}
+                                                                            <h5 className="absolute bottom-3 left-4 right-4 font-bold text-white text-lg leading-tight text-shadow-sm">{item.name}</h5>
+                                                                        </div>
+                                                                        <div className="p-5 flex flex-col flex-grow bg-white">
+                                                                            <p className="text-sm text-gray-500 mb-4 flex-grow line-clamp-2">{item.description}</p>
+                                                                            
+                                                                            <div className="mt-auto flex items-center justify-between gap-3 pt-4 border-t border-gray-100">
+                                                                                <div className="flex-1 flex items-center bg-gray-50 rounded-xl px-4 py-2.5 border border-gray-200 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-200 focus-within:bg-white transition-all shadow-inner">
+                                                                                    <span className="text-gray-400 font-bold text-base mr-1">+₱</span>
+                                                                                    <input
+                                                                                        type="number"
+                                                                                        id={`price_input_${item.id}`}
+                                                                                        defaultValue={currentPrice}
+                                                                                        className="w-full text-base font-bold text-gray-900 bg-transparent outline-none"
+                                                                                    />
+                                                                                </div>
+                                                                                <button
+                                                                                    onClick={() => {
+                                                                                        const el = document.getElementById(`price_input_${item.id}`);
+                                                                                        handlePricingUpdate('dish', item.id, el.value);
+                                                                                    }}
+                                                                                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl transition-colors shadow-md hover:shadow-lg active:transform active:scale-95"
+                                                                                >
+                                                                                    Save
+                                                                                </button>
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                 );
                                                             })}
-                                                            {items.length === 0 && (
+                                                            {getMergedDishes(activeMenuCategory).length === 0 && (
                                                                 <div className="text-sm text-gray-400 italic">No items in this category.</div>
                                                             )}
                                                         </div>
                                                     </div>
-                                                ))}
                                             </div>
                                         </div>
                                     </div>
@@ -1150,6 +1270,137 @@ const DashboardAdmin = () => {
                     </div>
                 )
             }
+
+            {/* Add New Menu Item Modal */}
+            {menuItemModal.open && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-fadeIn">
+                        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+                            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                                Add New Menu Item
+                            </h3>
+                            <button onClick={() => setMenuItemModal({ open: false, mode: 'add', data: null })} className="text-gray-400 hover:text-gray-600 transition-colors">
+                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleMenuItemSubmit} className="p-6 space-y-5">
+                            {/* Name */}
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1.5">Dish Name <span className="text-red-500">*</span></label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={menuItemForm.name}
+                                    onChange={e => setMenuItemForm({ ...menuItemForm, name: e.target.value })}
+                                    placeholder="e.g. Garlic Butter Shrimp"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 outline-none transition-all text-sm"
+                                />
+                            </div>
+
+                            {/* Category */}
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1.5">Category <span className="text-red-500">*</span></label>
+                                <select
+                                    value={menuItemForm.category}
+                                    onChange={e => setMenuItemForm({ ...menuItemForm, category: e.target.value })}
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 outline-none transition-all text-sm bg-white capitalize"
+                                >
+                                    <option value="starters">Starters</option>
+                                    <option value="mains">Mains</option>
+                                    <option value="sides">Sides</option>
+                                    <option value="desserts">Desserts</option>
+                                    <option value="drinks">Drinks</option>
+                                </select>
+                            </div>
+
+                            {/* Cost & Price Adj */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Cost Per Head (₱) <span className="text-red-500">*</span></label>
+                                    <input
+                                        type="number"
+                                        required
+                                        min="0"
+                                        step="0.01"
+                                        value={menuItemForm.cost_per_head}
+                                        onChange={e => setMenuItemForm({ ...menuItemForm, cost_per_head: e.target.value })}
+                                        placeholder="0"
+                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 outline-none transition-all text-sm"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Price Adjustment (₱)</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={menuItemForm.price_adj}
+                                        onChange={e => setMenuItemForm({ ...menuItemForm, price_adj: e.target.value })}
+                                        placeholder="0"
+                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 outline-none transition-all text-sm"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Image URL */}
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1.5">Image URL</label>
+                                <input
+                                    type="url"
+                                    value={menuItemForm.image}
+                                    onChange={e => setMenuItemForm({ ...menuItemForm, image: e.target.value })}
+                                    placeholder="https://images.unsplash.com/..."
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 outline-none transition-all text-sm"
+                                />
+                                <p className="text-xs text-gray-400 mt-1">Leave blank for a default placeholder image.</p>
+                            </div>
+
+                            {/* Description */}
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1.5">Description</label>
+                                <textarea
+                                    rows="3"
+                                    value={menuItemForm.description}
+                                    onChange={e => setMenuItemForm({ ...menuItemForm, description: e.target.value })}
+                                    placeholder="A brief description of the dish..."
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 outline-none transition-all text-sm resize-none"
+                                />
+                            </div>
+
+                            {/* Best Seller Toggle */}
+                            <label className="flex items-center gap-3 cursor-pointer select-none">
+                                <input
+                                    type="checkbox"
+                                    checked={menuItemForm.is_best_seller}
+                                    onChange={e => setMenuItemForm({ ...menuItemForm, is_best_seller: e.target.checked })}
+                                    className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                />
+                                <span className="text-sm font-medium text-gray-700">Mark as Best Seller</span>
+                            </label>
+
+                            {/* Actions */}
+                            <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                                <button
+                                    type="button"
+                                    onClick={() => setMenuItemModal({ open: false, mode: 'add', data: null })}
+                                    className="px-6 py-2.5 text-sm font-bold text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={menuItemFormLoading}
+                                    className="px-6 py-2.5 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition-colors shadow-md disabled:opacity-50"
+                                >
+                                    {menuItemFormLoading ? 'Adding...' : 'Add Menu Item'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             {/* Toast */}
             {
