@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { router } from '@inertiajs/react';
 import ReceiptModal from '../../components/common/ReceiptModal';
 
 const PAYMENT_TYPE_LABELS = {
@@ -30,7 +30,6 @@ const Tooltip = ({ text }) => {
 
 const ClientDashboard = () => {
     const { user, logout } = useAuth();
-    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('my-events');
     const [data, setData] = useState({ bookings: [], tastings: [], payments: [] });
     const [loading, setLoading] = useState(true);
@@ -54,7 +53,7 @@ const ClientDashboard = () => {
 
     useEffect(() => {
         fetchData();
-    }, [navigate]);
+    }, []);
 
     useEffect(() => {
         if (toast) {
@@ -261,7 +260,7 @@ const ClientDashboard = () => {
             <header className="bg-white shadow-sm border-b border-gray-200">
                 <div className="max-w-7xl mx-auto py-5 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
                     <div className="flex items-center">
-                        <button onClick={() => navigate('/')} className="mr-4 text-gray-400 hover:text-gray-700 transition-colors">
+                        <button onClick={() => router.get('/')} className="mr-4 text-gray-400 hover:text-gray-700 transition-colors">
                             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                         </button>
                         <div>
@@ -309,7 +308,7 @@ const ClientDashboard = () => {
                                 <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                 <p className="text-lg font-semibold text-gray-700 mb-1">No events yet</p>
                                 <p className="text-sm text-gray-400 mb-6">Book your first event to see it here!</p>
-                                <button onClick={() => navigate('/book')} className="bg-primary-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-primary-700 transition-colors text-sm">Book Now</button>
+                                <button onClick={() => router.get('/book')} className="bg-primary-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-primary-700 transition-colors text-sm">Book Now</button>
                             </div>
                         ) : (
                             data.bookings.slice().sort(function (a, b) {
@@ -515,7 +514,7 @@ const ClientDashboard = () => {
                                                                         )}
                                                                     </div>
                                                                     {!isPaid && (
-                                                                        <button onClick={function (e) { e.stopPropagation(); navigate('/pay?paymentId=' + payment.id + '&bookingId=' + booking.id + '&amount=' + payment.amount + '&type=' + payment.payment_type); }}
+                                                                        <button onClick={function (e) { e.stopPropagation(); router.get('/pay?paymentId=' + payment.id + '&bookingId=' + booking.id + '&amount=' + payment.amount + '&type=' + payment.payment_type); }}
                                                                             className="w-full mt-3 py-2 rounded-lg text-xs font-bold bg-primary-600 text-white hover:bg-primary-700 transition-colors shadow-sm">
                                                                             Pay Now
                                                                         </button>
@@ -532,7 +531,7 @@ const ClientDashboard = () => {
                                                                 <p className="font-semibold text-gray-800 text-sm">Pay in Full</p>
                                                                 <p className="text-xs text-gray-500">{'Clear remaining balance of ₱' + remainingBalance.toLocaleString()}</p>
                                                             </div>
-                                                            <button onClick={function (e) { e.stopPropagation(); navigate('/pay?bookingId=' + booking.id + '&amount=' + remainingBalance + '&type=Full&payInFull=true'); }}
+                                                            <button onClick={function (e) { e.stopPropagation(); router.get('/pay?bookingId=' + booking.id + '&amount=' + remainingBalance + '&type=Full&payInFull=true'); }}
                                                                 className="bg-primary-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-primary-700 transition-colors shadow-sm">
                                                                 {'Pay ₱' + remainingBalance.toLocaleString()}
                                                             </button>

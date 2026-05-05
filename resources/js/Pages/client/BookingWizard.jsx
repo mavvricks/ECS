@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { router } from '@inertiajs/react';
+import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import CalendarView from '../../components/client/CalendarView';
 import EventIdentity from '../../components/client/EventIdentity';
@@ -11,7 +12,6 @@ import BlueprintPanel from '../../components/client/BlueprintPanel';
 import Modal from '../../components/common/Modal';
 
 const BookingWizard = () => {
-    const navigate = useNavigate();
     const { user } = useAuth();
     const [currentStep, setCurrentStep] = useState(1);
     const [bookingData, setBookingData] = useState({
@@ -22,7 +22,7 @@ const BookingWizard = () => {
         // Step 2
         eventType: '',
         // Step 3
-        pax: 50,
+        pax: 20,
         dietaryNotes: '',
         // Step 4
         budget: 0,
@@ -121,53 +121,46 @@ const BookingWizard = () => {
         };
 
         try {
-            const response = await fetch('/api/bookings', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            });
+            const response = await axios.post('/api/bookings', payload);
 
-            const data = await response.json();
-
-            if (response.ok) {
-                // If food tasting requested, submit that too
-                if (merged.wantsTasting) {
-                    try {
-                        // Session auth - no token needed
-                        await fetch('/api/food-tasting', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                guest_name: merged.tasting_guest_name,
-                                guest_email: merged.tasting_guest_email,
-                                guest_phone: merged.tasting_guest_phone,
-                                preferred_date: merged.tasting_preferred_date,
-                                preferred_time: merged.tasting_preferred_time,
-                                notes: merged.tasting_notes
-                            })
-                        });
-                    } catch (err) {
-                        console.error("Food tasting submission error:", err);
-                    }
+            // If food tasting requested, submit that too
+            if (merged.wantsTasting) {
+                try {
+                    await axios.post('/api/food-tasting', {
+                        guest_name: merged.tasting_guest_name,
+                        guest_email: merged.tasting_guest_email,
+                        guest_phone: merged.tasting_guest_phone,
+                        preferred_date: merged.tasting_preferred_date,
+                        preferred_time: merged.tasting_preferred_time,
+                        notes: merged.tasting_notes
+                    });
+                } catch (err) {
+                    console.error("Food tasting submission error:", err);
                 }
-
-                showModal(
-                    'success',
-                    'Booking Confirmed! 🎉',
-                    'Your booking has been successfully submitted! You can fill in additional event details such as Reservation Time, Serving Time, Event Timeline, and Color Motif in your Dashboard under the "My Events" tab.',
-                    () => navigate('/dashboard/client'),
-                    'Go to My Events'
-                );
-            } else {
-                showModal('error', 'Booking Failed', data.error);
             }
+
+            showModal(
+                'success',
+                'Booking Confirmed! 🎉',
+                'Your booking has been successfully submitted! You can fill in additional event details such as Reservation Time, Serving Time, Event Timeline, and Color Motif in your Dashboard under the "My Events" tab.',
+                () => router.get('/dashboard/client'),
+                'Go to My Events'
+            );
         } catch (error) {
             console.error("Submission Error:", error);
-            showModal('error', 'Submission Error', 'An error occurred while submitting your booking. Please try again.');
+            let errorMsg = 'An error occurred while submitting your booking. Please try again.';
+            
+            if (error.response && error.response.data) {
+                const data = error.response.data;
+                errorMsg = data.error || data.message || errorMsg;
+                
+                if (data.errors) {
+                    const validationErrors = Object.values(data.errors).flat().join(' ');
+                    errorMsg += ' ' + validationErrors;
+                }
+            }
+            
+            showModal('error', 'Booking Failed', errorMsg);
         }
     };
 

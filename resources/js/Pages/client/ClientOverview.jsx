@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { router } from '@inertiajs/react';
 import { GALLERY_IMAGES } from '../../data/mockData';
 import { useState, useEffect } from 'react';
 
@@ -21,7 +21,6 @@ const HERO_SLIDES = [
 ];
 
 const ClientOverview = () => {
-    const navigate = useNavigate();
     const [currentSlide, setCurrentSlide] = useState(0);
 
     useEffect(() => {
@@ -67,7 +66,7 @@ const ClientOverview = () => {
                         {HERO_SLIDES[currentSlide].subtitle}
                     </p>
                     <button
-                        onClick={() => navigate('booking')}
+                        onClick={() => router.get('/book')}
                         className="bg-yellow-500 hover:bg-yellow-400 text-red-900 font-bold py-4 px-10 rounded-lg shadow-xl transition-transform transform hover:scale-105 uppercase tracking-wide text-sm"
                     >
                         Book Now

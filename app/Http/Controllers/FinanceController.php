@@ -35,6 +35,7 @@ class FinanceController extends Controller
                   ->orderByRaw("CASE payment_type WHEN 'Reservation' THEN 1 WHEN 'DownPayment' THEN 2 WHEN 'Final' THEN 3 END");
             }])
             ->where('status', '!=', 'Cancelled')
+            ->where('status', '!=', 'Pending') // Do not show pending (unapproved) bookings
             ->orderBy('event_date', 'asc')
             ->get()
             ->map(function ($b) {
@@ -55,6 +56,9 @@ class FinanceController extends Controller
     {
         $payments = Payment::with(['booking:id,event_date,client_full_name,user_id', 'booking.user:id,username'])
             ->where('status', 'Pending')
+            ->whereHas('booking', function ($q) {
+                $q->where('status', '!=', 'Pending'); // Only payments for approved/confirmed bookings
+            })
             ->orderBy('due_date', 'asc')
             ->get()
             ->map(function ($p) {
@@ -127,7 +131,10 @@ class FinanceController extends Controller
      */
     public function getLedger(Request $request)
     {
-        $query = Payment::with(['booking:id,event_date,client_full_name,package_id,user_id', 'booking.user:id,username']);
+        $query = Payment::with(['booking:id,event_date,client_full_name,package_id,user_id', 'booking.user:id,username'])
+            ->whereHas('booking', function ($q) {
+                $q->whereNotIn('status', ['Pending', 'Cancelled']); // Hide ledger entries for unapproved/cancelled bookings
+            });
 
         if ($request->status && $request->status !== 'All') {
             $query->where('status', $request->status);

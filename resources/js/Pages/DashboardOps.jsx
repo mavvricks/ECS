@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { router } from '@inertiajs/react';
 import { DISHES } from '../data/mockData';
 
 const DashboardOps = () => {
     const { user, logout } = useAuth();
-    const navigate = useNavigate();
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('calendar');
@@ -48,8 +47,7 @@ const DashboardOps = () => {
     };
 
     const handleLogout = () => {
-        logout();
-        navigate('/login');
+        router.post('/logout');
     };
 
     const updateStatus = async (id, newStatus) => {
@@ -129,7 +127,7 @@ const DashboardOps = () => {
 
         for (let day = 1; day <= daysInMonth; day++) {
             const dateStr = `${selectedMonth.getFullYear()}-${String(selectedMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            const dayBookings = bookings.filter(b => b.event_date === dateStr);
+            const dayBookings = bookings.filter(b => b.event_date && b.event_date.substring(0, 10) === dateStr);
 
             days.push(
                 <div key={day} className="h-32 bg-white border border-gray-100 p-2 overflow-y-auto hover:bg-gray-50 transition-colors">
@@ -629,7 +627,7 @@ const DashboardOps = () => {
                         <ul className="divide-y divide-gray-200">
                             {pendingBookings.length === 0 ? <li className="p-8 text-gray-500 text-center">No pending inquiries.</li> : null}
                             {pendingBookings.map(booking => (
-                                <li key={booking.id} className="block hover:bg-gray-50 transition-colors">
+                                <li key={booking.id} onClick={() => setSelectedBooking(booking)} className="block hover:bg-gray-50 transition-colors cursor-pointer">
                                     <div className="px-6 py-5">
                                         <div className="flex items-center justify-between">
                                             <p className="text-sm font-bold text-primary-700 truncate">
@@ -657,8 +655,8 @@ const DashboardOps = () => {
                                                 </p>
                                             </div>
                                             <div className="mt-4 flex items-center text-sm sm:mt-0 space-x-3">
-                                                <button onClick={() => updateStatus(booking.id, 'Confirmed')} className="bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 font-medium px-4 py-1.5 rounded-lg transition-colors">Approve</button>
-                                                <button onClick={() => updateStatus(booking.id, 'Cancelled')} className="bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 font-medium px-4 py-1.5 rounded-lg transition-colors">Reject</button>
+                                                <button onClick={(e) => { e.stopPropagation(); updateStatus(booking.id, 'Confirmed'); }} className="bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 font-medium px-4 py-1.5 rounded-lg transition-colors">Approve</button>
+                                                <button onClick={(e) => { e.stopPropagation(); updateStatus(booking.id, 'Cancelled'); }} className="bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 font-medium px-4 py-1.5 rounded-lg transition-colors">Reject</button>
                                             </div>
                                         </div>
                                     </div>
@@ -670,7 +668,7 @@ const DashboardOps = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {pendingBookings.length === 0 ? <div className="col-span-full p-8 text-gray-500 text-center bg-white rounded-xl shadow-sm border border-gray-200">No pending inquiries.</div> : null}
                         {pendingBookings.map(booking => (
-                            <div key={booking.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-200">
+                            <div key={booking.id} onClick={() => setSelectedBooking(booking)} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-200 cursor-pointer">
                                 <div className="p-6">
                                     <div className="flex justify-between items-start mb-4">
                                         <div className="flex-1 pr-4">
@@ -685,8 +683,8 @@ const DashboardOps = () => {
                                         <p className="flex justify-between text-sm"><span className="text-gray-500 font-medium">Budget</span><span className="font-bold text-primary-700">₱{booking.budget?.toLocaleString() || 'N/A'}</span></p>
                                     </div>
                                     <div className="flex gap-3">
-                                        <button onClick={() => updateStatus(booking.id, 'Confirmed')} className="flex-1 bg-green-50 text-green-700 hover:bg-green-100 font-bold py-2.5 rounded-lg text-sm transition-colors border border-green-200 shadow-sm">Approve</button>
-                                        <button onClick={() => updateStatus(booking.id, 'Cancelled')} className="flex-1 bg-red-50 text-red-700 hover:bg-red-100 font-bold py-2.5 rounded-lg text-sm transition-colors border border-red-200 shadow-sm">Reject</button>
+                                        <button onClick={(e) => { e.stopPropagation(); updateStatus(booking.id, 'Confirmed'); }} className="flex-1 bg-green-50 text-green-700 hover:bg-green-100 font-bold py-2.5 rounded-lg text-sm transition-colors border border-green-200 shadow-sm">Approve</button>
+                                        <button onClick={(e) => { e.stopPropagation(); updateStatus(booking.id, 'Cancelled'); }} className="flex-1 bg-red-50 text-red-700 hover:bg-red-100 font-bold py-2.5 rounded-lg text-sm transition-colors border border-red-200 shadow-sm">Reject</button>
                                     </div>
                                 </div>
                             </div>

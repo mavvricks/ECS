@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link, router } from '@inertiajs/react';
 
 const Login = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const { login } = useAuth();
-    const navigate = useNavigate();
+
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -28,8 +28,9 @@ const Login = () => {
                     'Admin': '/dashboard/admin',
                     'Accounting': '/dashboard/finance'
                 };
+                // Redirect is handled by backend, but we fall back to manual redirect if needed
                 const targetPath = rolePaths[result.role] || '/';
-                navigate(targetPath);
+                router.get(targetPath);
             } else {
                 console.error("Login failed:", result.message);
                 setError(result.message);
@@ -47,7 +48,7 @@ const Login = () => {
         <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 font-sans">
             <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-lg border border-gray-100 relative">
                 {/* Back Button */}
-                <Link to="/" className="absolute top-4 left-4 text-gray-400 hover:text-gray-600 transition-colors flex items-center">
+                <Link href="/" className="absolute top-4 left-4 text-gray-400 hover:text-gray-600 transition-colors flex items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
                     </svg>
@@ -113,7 +114,7 @@ const Login = () => {
                 <div className="text-center text-sm text-gray-600">
                     <p>
                         Don't have an account?{' '}
-                        <Link to="/register" className="font-medium text-primary-600 hover:text-primary-500">
+                        <Link href="/register" className="font-medium text-primary-600 hover:text-primary-500">
                             Register
                         </Link>
                     </p>

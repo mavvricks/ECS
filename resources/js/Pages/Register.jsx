@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link, router } from '@inertiajs/react';
 
 const Register = () => {
     const [formData, setFormData] = useState({
@@ -11,7 +11,6 @@ const Register = () => {
     });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const navigate = useNavigate();
 
     const [showTerms, setShowTerms] = useState(false);
     const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -40,58 +39,44 @@ const Register = () => {
         });
     };
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = (e) => {
         e.preventDefault();
         setError('');
-        setLoading(true);
 
         if (formData.password !== formData.confirmPassword) {
             setError("Passwords do not match");
-            setLoading(false);
             return;
         }
 
         if (!agreedToTerms) {
             setError("You must agree to the Terms and Conditions to register.");
-            setLoading(false);
             return;
         }
 
-        try {
-            const response = await fetch('/api/auth/register', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    username: formData.username,
-                    password: formData.password,
-                    email: formData.email,
-                    phone: formData.phone,
-                    role: 'Client'
-                }),
-            });
+        setLoading(true);
 
-            if (response.ok) {
-                // Successful registration
-                navigate('/login', { state: { message: "Registration successful! Please login." } });
-            } else {
-                const data = await response.text();
-                setError(data || "Registration failed");
-            }
-        } catch (err) {
-            console.error("Registration error:", err);
-            setError("Network error. Please try again.");
-        } finally {
-            setLoading(false);
-        }
+        router.post('/register', {
+            username: formData.username,
+            password: formData.password,
+            email: formData.email,
+            phone: formData.phone,
+        }, {
+            onError: (errors) => {
+                const msg = errors.username || errors.password || errors.email || errors.phone || 'Registration failed. Please try again.';
+                setError(msg);
+                setLoading(false);
+            },
+            onFinish: () => {
+                setLoading(false);
+            },
+        });
     };
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 font-sans">
             <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-lg border border-gray-100 relative">
                 {/* Back Button */}
-                <Link to="/" className="absolute top-4 left-4 text-gray-400 hover:text-gray-600 transition-colors flex items-center">
+                <Link href="/" className="absolute top-4 left-4 text-gray-400 hover:text-gray-600 transition-colors flex items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
                     </svg>
@@ -221,7 +206,7 @@ const Register = () => {
                 <div className="text-center text-sm text-gray-600">
                     <p>
                         Already have an account?{' '}
-                        <Link to="/login" className="font-medium text-primary-600 hover:text-primary-500">
+                        <Link href="/login" className="font-medium text-primary-600 hover:text-primary-500">
                             Sign in
                         </Link>
                     </p>

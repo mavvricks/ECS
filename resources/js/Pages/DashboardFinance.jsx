@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { router } from '@inertiajs/react';
 import ReceiptModal from '../components/common/ReceiptModal';
 import PaymentTermEditorModal from '../components/finance/PaymentTermEditorModal';
 
@@ -12,7 +12,6 @@ const PAYMENT_TYPE_LABELS = {
 
 const DashboardFinance = () => {
     const { user, logout } = useAuth();
-    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('bookings');
     const [paymentViewMode, setPaymentViewMode] = useState('list');
     const [bookings, setBookings] = useState([]);
@@ -27,6 +26,8 @@ const DashboardFinance = () => {
     const [refundQueue, setRefundQueue] = useState([]);
 
     const [ledgerFilter, setLedgerFilter] = useState({ status: 'All', startDate: '', endDate: '', clientSearch: '', packageFilter: 'All' });
+    const [bookingSearchQuery, setBookingSearchQuery] = useState('');
+    const [bookingSortOrder, setBookingSortOrder] = useState('eventDateSoonest');
 
     useEffect(() => {
         if (activeTab === 'bookings') {
@@ -102,8 +103,7 @@ const DashboardFinance = () => {
     };
 
     const handleLogout = () => {
-        logout();
-        navigate('/login');
+        router.post('/logout');
     };
 
     const getStatusBadge = (status, dueDate) => {
@@ -227,8 +227,32 @@ const DashboardFinance = () => {
                             <div className="p-6 text-center text-gray-500">No bookings found.</div>
                         ) : (
                             <div>
-                                <div className="flex justify-end mb-4">
-                                    <div className="bg-gray-100 p-1 rounded-lg inline-flex">
+                                <div className="flex flex-col md:flex-row justify-between mb-6 gap-4">
+                                    <div className="flex-1 flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                                        <div className="relative w-full max-w-md">
+                                            <input 
+                                                type="text" 
+                                                placeholder="Search by client name or ID..." 
+                                                value={bookingSearchQuery}
+                                                onChange={(e) => setBookingSearchQuery(e.target.value)}
+                                                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                            />
+                                            <svg className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                                        </div>
+                                        <select
+                                            value={bookingSortOrder}
+                                            onChange={(e) => setBookingSortOrder(e.target.value)}
+                                            className="w-full sm:w-auto border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white"
+                                        >
+                                            <option value="eventDateSoonest">Event Date (Soonest First)</option>
+                                            <option value="eventDateLatest">Event Date (Latest First)</option>
+                                            <option value="bookingNewest">Booking Date (Newest First)</option>
+                                            <option value="bookingOldest">Booking Date (Oldest First)</option>
+                                            <option value="clientAZ">Client Name (A-Z)</option>
+                                            <option value="clientZA">Client Name (Z-A)</option>
+                                        </select>
+                                    </div>
+                                    <div className="bg-gray-100 p-1 rounded-lg inline-flex flex-shrink-0 self-start">
                                         <button onClick={() => setPaymentViewMode('list')} className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${paymentViewMode === 'list' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
                                             <div className="flex items-center gap-1">
                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
@@ -243,8 +267,43 @@ const DashboardFinance = () => {
                                         </button>
                                     </div>
                                 </div>
-                                <div className={paymentViewMode === 'card' ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" : "space-y-6"}>
-                                    {bookings.map(function (booking) {
+                                {(() => {
+                                    const filteredBookings = bookings
+                                        .filter(b => {
+                                            if (!bookingSearchQuery) return true;
+                                            const searchLower = bookingSearchQuery.toLowerCase();
+                                            return (b.client_full_name && b.client_full_name.toLowerCase().includes(searchLower)) ||
+                                                (b.username && b.username.toLowerCase().includes(searchLower)) ||
+                                                (b.id && b.id.toString().includes(searchLower));
+                                        })
+                                        .sort((a, b) => {
+                                            if (bookingSortOrder === 'eventDateSoonest') {
+                                                return new Date(a.event_date) - new Date(b.event_date);
+                                            } else if (bookingSortOrder === 'eventDateLatest') {
+                                                return new Date(b.event_date) - new Date(a.event_date);
+                                            } else if (bookingSortOrder === 'bookingNewest') {
+                                                return new Date(b.created_at) - new Date(a.created_at);
+                                            } else if (bookingSortOrder === 'bookingOldest') {
+                                                return new Date(a.created_at) - new Date(b.created_at);
+                                            } else if (bookingSortOrder === 'clientAZ') {
+                                                const nameA = a.client_full_name || a.username || '';
+                                                const nameB = b.client_full_name || b.username || '';
+                                                return nameA.localeCompare(nameB);
+                                            } else if (bookingSortOrder === 'clientZA') {
+                                                const nameA = a.client_full_name || a.username || '';
+                                                const nameB = b.client_full_name || b.username || '';
+                                                return nameB.localeCompare(nameA);
+                                            }
+                                            return 0;
+                                        });
+
+                                    if (filteredBookings.length === 0) {
+                                        return <div className="p-12 text-center text-gray-500 bg-white border border-gray-200 rounded-xl">No bookings match your search.</div>;
+                                    }
+
+                                    return (
+                                        <div className={paymentViewMode === 'card' ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" : "space-y-6"}>
+                                            {filteredBookings.map(function (booking) {
                                         var progress = getBookingProgress(booking.payments);
                                         var isExpanded = expandedBooking === booking.id;
                                         var totalCost = booking.totalCost || 0;
@@ -439,8 +498,10 @@ const DashboardFinance = () => {
                                                 )}
                                             </div>
                                         );
-                                    })}
-                                </div>
+                                            })}
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         )}
                     </div>
@@ -519,47 +580,84 @@ const DashboardFinance = () => {
                                     return <div className="p-6 text-center text-gray-500">No records found matching filters.</div>;
                                 }
 
+                                const grouped = {};
+                                filteredLedgerPayments.forEach(p => {
+                                    if (!grouped[p.booking_id]) {
+                                        grouped[p.booking_id] = {
+                                            id: p.booking_id,
+                                            client_full_name: p.client_full_name || p.username,
+                                            package_id: p.package_id,
+                                            event_date: p.event_date,
+                                            payments: []
+                                        };
+                                    }
+                                    grouped[p.booking_id].payments.push(p);
+                                });
+                                const groupedArray = Object.values(grouped);
+
                                 return (
-                                    <table className="w-full text-sm">
-                                        <thead className="bg-gray-50 border-b border-gray-200">
-                                            <tr className="text-xs uppercase text-gray-400">
-                                                <th className="text-left py-3 px-4">ID</th>
-                                                <th className="text-left py-3 px-4">Client</th>
-                                                <th className="text-left py-3 px-4">Package</th>
-                                                <th className="text-left py-3 px-4">Type</th>
-                                                <th className="text-right py-3 px-4">Amount</th>
-                                                <th className="text-center py-3 px-4">Due Date</th>
-                                                <th className="text-center py-3 px-4">Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {filteredLedgerPayments.map(function (p) {
-                                                var badge = getStatusBadge(p.status, p.due_date);
-                                                var typeInfo = PAYMENT_TYPE_LABELS[p.payment_type] || { label: p.payment_type || 'Legacy', icon: '-' };
-                                                var pkg = p.package_id ? (p.package_id.charAt(0).toUpperCase() + p.package_id.slice(1)) : 'Custom';
-                                                return (
-                                                    <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50">
-                                                        <td className="py-3 px-4 text-gray-500">{'#' + p.id}</td>
-                                                        <td className="py-3 px-4 font-medium text-gray-900">{p.client_full_name || p.username}</td>
-                                                        <td className="py-3 px-4 text-gray-600">{pkg}</td>
-                                                        <td className="py-3 px-4">
-                                                            <span className="flex items-center gap-1.5">
-                                                                <span>{typeInfo.icon}</span>
-                                                                <span>{typeInfo.label}</span>
-                                                            </span>
-                                                        </td>
-                                                        <td className="py-3 px-4 text-right font-semibold">{'P' + (p.amount ? p.amount.toLocaleString() : '0')}</td>
-                                                        <td className="py-3 px-4 text-center text-gray-600">{p.due_date || '-'}</td>
-                                                        <td className="py-3 px-4 text-center">
-                                                            <span className={'inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ' + badge.cls}>
-                                                                {badge.text}
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
+                                    <div className="space-y-6">
+                                        {groupedArray.map(booking => (
+                                            <div key={booking.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                                                <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex flex-wrap justify-between items-center gap-4">
+                                                    <div>
+                                                        <h3 className="text-lg font-bold text-gray-900">{booking.client_full_name}</h3>
+                                                        <p className="text-sm text-gray-500 mt-1">
+                                                            Booking #{booking.id} <span className="mx-2">•</span> 
+                                                            <span className="font-medium">{booking.package_id ? booking.package_id.charAt(0).toUpperCase() + booking.package_id.slice(1) : 'Custom'} Package</span>
+                                                        </p>
+                                                    </div>
+                                                    <div className="text-right bg-white px-4 py-2 rounded-lg border border-gray-100 shadow-sm">
+                                                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Event Date</p>
+                                                        <p className="text-sm font-semibold text-gray-800">
+                                                            {booking.event_date ? new Date(booking.event_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full text-sm">
+                                                        <thead className="bg-white border-b border-gray-100">
+                                                            <tr className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                                                                <th className="text-left py-4 px-6">Payment Type</th>
+                                                                <th className="text-right py-4 px-6">Amount</th>
+                                                                <th className="text-center py-4 px-6">Due Date</th>
+                                                                <th className="text-center py-4 px-6">Status</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-gray-50 bg-white">
+                                                            {booking.payments.map(p => {
+                                                                var badge = getStatusBadge(p.status, p.due_date);
+                                                                var typeInfo = PAYMENT_TYPE_LABELS[p.payment_type] || { label: p.payment_type || 'Legacy', icon: '-' };
+                                                                return (
+                                                                    <tr key={p.id} className="hover:bg-gray-50 transition-colors">
+                                                                        <td className="py-4 px-6">
+                                                                            <div className="flex items-center gap-3">
+                                                                                <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xs font-bold ring-1 ring-blue-100">
+                                                                                    {typeInfo.icon}
+                                                                                </div>
+                                                                                <span className="font-medium text-gray-900">{typeInfo.label}</span>
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="py-4 px-6 text-right font-bold text-gray-900">
+                                                                            {'P' + (p.amount ? p.amount.toLocaleString() : '0')}
+                                                                        </td>
+                                                                        <td className="py-4 px-6 text-center text-gray-600 font-medium">
+                                                                            {p.due_date ? new Date(p.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}
+                                                                        </td>
+                                                                        <td className="py-4 px-6 text-center">
+                                                                            <span className={'inline-flex px-3 py-1 rounded-full text-xs font-bold tracking-wide shadow-sm ' + badge.cls}>
+                                                                                {badge.text}
+                                                                            </span>
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 );
                             })()}
                         </div>

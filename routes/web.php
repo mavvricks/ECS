@@ -45,13 +45,15 @@ Route::get('/api/bookings/availability/{date}', [BookingController::class, 'chec
 
 // ─── Client Routes ───
 
+// Public Views (Client Side)
+Route::get('/book', fn () => Inertia::render('client/BookingWizard'))->name('booking.wizard');
+Route::get('/menu', fn () => Inertia::render('client/MenuGallery'))->name('menu.gallery');
+Route::get('/food-tasting', fn () => Inertia::render('client/FoodTasting'))->name('food-tasting');
+
 Route::middleware(['auth', 'role:Client'])->group(function () {
     // Dashboard — renders original ClientDashboard.jsx which fetches via API
     Route::get('/dashboard/client', fn () => Inertia::render('client/ClientDashboard'))->name('dashboard.client');
-    Route::get('/book', fn () => Inertia::render('client/BookingWizard'))->name('booking.wizard');
-    Route::get('/menu', fn () => Inertia::render('client/MenuGallery'))->name('menu.gallery');
     Route::get('/pay', fn () => Inertia::render('client/PaymentPage'))->name('payment.page');
-    Route::get('/food-tasting', fn () => Inertia::render('client/FoodTasting'))->name('food-tasting');
 
     // Dashboard data API (used by original ClientDashboard.jsx fetch calls)
     Route::get('/api/dashboard/client', [ClientDashboardController::class, 'apiData']);

@@ -55,7 +55,8 @@ class AuthController extends Controller
         $request->session()->regenerate();
 
         // Redirect based on role
-        return redirect()->intended($this->getDashboardRoute($user->role));
+        return redirect()->intended($this->getDashboardRoute($user->role))
+            ->with('message', 'Welcome back, ' . $user->username . '! We\'re glad to see you again.');
     }
 
     /**
@@ -82,7 +83,8 @@ class AuthController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
-        return redirect()->route('dashboard.client');
+        return redirect('/')
+            ->with('message', 'Welcome to Eloquente Catering, ' . $user->username . '! Your account is ready — let\'s plan something special.');
     }
 
     /**

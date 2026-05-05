@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { router } from '@inertiajs/react';
 
 const PAYMENT_METHODS = [
     {
@@ -51,8 +51,7 @@ const PAYMENT_TYPE_LABELS = {
 };
 
 const PaymentPage = () => {
-    const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
+    const searchParams = new URLSearchParams(window.location.search);
     const paymentId = searchParams.get('paymentId');
     const bookingId = searchParams.get('bookingId');
     const amount = parseFloat(searchParams.get('amount')) || 0;
@@ -122,7 +121,7 @@ const PaymentPage = () => {
             <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-10">
                 <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <button onClick={function () { navigate('/dashboard/client'); }} className="text-gray-400 hover:text-gray-700 transition-colors p-1">
+                        <button onClick={function () { router.get('/dashboard/client'); }} className="text-gray-400 hover:text-gray-700 transition-colors p-1">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                         </button>
                         <div>
@@ -340,7 +339,7 @@ const PaymentPage = () => {
                             </div>
                         </div>
 
-                        <button onClick={function () { navigate('/dashboard/client'); }}
+                        <button onClick={function () { router.get('/dashboard/client'); }}
                             className="bg-primary-600 text-white px-8 py-3 rounded-xl font-bold text-sm hover:bg-primary-700 shadow-lg shadow-primary-200 transition-all">
                             Back to Dashboard
                         </button>

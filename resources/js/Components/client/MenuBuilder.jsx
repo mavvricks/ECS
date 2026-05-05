@@ -97,59 +97,102 @@ const MenuBuilder = ({ bookingData, updateBooking, onNext, onBack }) => {
         }
     }, [selections, menuTotal, phase]);
 
-    // Toggle a dish selection
+    // Per-category dish limits
+    const CATEGORY_LIMITS = {
+        starters: 3,
+        mains: 4,
+        sides: 4,
+        desserts: 4,
+        drinks: 3
+    };
+
+    // Toggle a dish selection (with category limit enforcement)
     const toggleDish = (category, dishId) => {
         setSelections(prev => {
             const currentList = prev[category];
             if (currentList.includes(dishId)) {
                 return { ...prev, [category]: currentList.filter(id => id !== dishId) };
             } else {
+                // Check limit
+                const limit = CATEGORY_LIMITS[category] || 5;
+                if (currentList.length >= limit) {
+                    return prev; // Don't add — limit reached
+                }
                 return { ...prev, [category]: [...currentList, dishId] };
             }
         });
     };
 
-    // Budget Maximizer: greedy algorithm to maximize budget usage
+    // Budget Maximizer: round-robin across categories to spread dishes evenly
     const applyBudgetMaximizer = () => {
         if (!budget || !pax) return;
         const totalBudget = parseInt(budget);
         const newSelections = { starters: [], mains: [], sides: [], desserts: [], drinks: [] };
         let runningTotal = 0;
 
-        // Collect all dishes with their category and cost
-        const allDishes = [];
-        const categories = ['mains', 'starters', 'sides', 'desserts', 'drinks'];
-        categories.forEach(category => {
-            DISHES[category]?.forEach(dish => {
-                allDishes.push({
+        const categories = ['starters', 'mains', 'sides', 'desserts', 'drinks'];
+
+        // Build sorted dish lists per category (most expensive first to maximize budget usage)
+        const categoryQueues = {};
+        categories.forEach(cat => {
+            categoryQueues[cat] = [...(DISHES[cat] || [])]
+                .map(dish => ({
                     ...dish,
-                    category,
+                    category: cat,
                     totalCost: getDishCost(dish) * pax
-                });
-            });
+                }))
+                .sort((a, b) => b.totalCost - a.totalCost); // expensive first
         });
 
-        // Sort by total cost descending — greedy: pick expensive dishes first to maximize usage
-        allDishes.sort((a, b) => b.totalCost - a.totalCost);
+        // Round-robin: cycle through categories, picking one dish at a time from each
+        let changed = true;
+        while (changed) {
+            changed = false;
+            for (const cat of categories) {
+                const limit = CATEGORY_LIMITS[cat] || 5;
+                if (newSelections[cat].length >= limit) continue; // Category full
 
-        // Greedily pick dishes that fit within remaining budget
-        for (const dish of allDishes) {
-            if (runningTotal + dish.totalCost <= totalBudget) {
-                newSelections[dish.category].push(dish.id);
-                runningTotal += dish.totalCost;
+                // Find the next best dish in this category that fits the budget
+                const queue = categoryQueues[cat];
+                let picked = false;
+                for (let i = 0; i < queue.length; i++) {
+                    const dish = queue[i];
+                    if (newSelections[cat].includes(dish.id)) continue; // Already selected
+                    if (runningTotal + dish.totalCost <= totalBudget) {
+                        newSelections[cat].push(dish.id);
+                        runningTotal += dish.totalCost;
+                        picked = true;
+                        changed = true;
+                        break;
+                    }
+                }
+
+                // If most expensive doesn't fit, try cheaper ones
+                if (!picked) {
+                    const cheapQueue = [...queue].reverse();
+                    for (const dish of cheapQueue) {
+                        if (newSelections[cat].includes(dish.id)) continue;
+                        if (runningTotal + dish.totalCost <= totalBudget) {
+                            newSelections[cat].push(dish.id);
+                            runningTotal += dish.totalCost;
+                            changed = true;
+                            break;
+                        }
+                    }
+                }
             }
         }
 
-        // If nothing was picked (budget too low), fall back to cheapest dishes per category
+        // Fallback: if budget is too low for even one per category, pick cheapest from each
         const totalPicked = Object.values(newSelections).reduce((sum, arr) => sum + arr.length, 0);
         if (totalPicked === 0) {
-            categories.forEach(category => {
-                const sorted = [...(DISHES[category] || [])].sort((a, b) => getDishCost(a) - getDishCost(b));
+            categories.forEach(cat => {
+                const sorted = [...(DISHES[cat] || [])].sort((a, b) => getDishCost(a) - getDishCost(b));
                 if (sorted.length > 0) {
                     const cheapest = sorted[0];
                     const cost = getDishCost(cheapest) * pax;
-                    if (runningTotal + cost <= totalBudget * 1.1) { // allow 10% over for minimum viable menu
-                        newSelections[category].push(cheapest.id);
+                    if (runningTotal + cost <= totalBudget * 1.1) {
+                        newSelections[cat].push(cheapest.id);
                         runningTotal += cost;
                     }
                 }
@@ -475,7 +518,7 @@ const MenuBuilder = ({ bookingData, updateBooking, onNext, onBack }) => {
             <div className="mb-6">
                 <h2 className="text-3xl font-display font-bold text-gray-900">Customize Your Menu</h2>
                 <p className="text-gray-500 mt-1">
-                    Select your dishes. <span className="text-primary-600 font-medium">No limits — pick as many as you'd like.</span>
+                    Select your dishes per category. <span className="text-primary-600 font-medium">Limits apply per category.</span>
                 </p>
             </div>
 
@@ -483,7 +526,9 @@ const MenuBuilder = ({ bookingData, updateBooking, onNext, onBack }) => {
             <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl overflow-x-auto">
                 {CATEGORY_TABS.map(tab => {
                     const count = selections[tab.key]?.length || 0;
+                    const limit = CATEGORY_LIMITS[tab.key] || 5;
                     const isActive = activeTab === tab.key;
+                    const isFull = count >= limit;
                     return (
                         <button
                             key={tab.key}
@@ -495,12 +540,14 @@ const MenuBuilder = ({ bookingData, updateBooking, onNext, onBack }) => {
                         >
                             <TabIcon type={tab.key} className="w-4 h-4 inline-block mr-0.5" />
                             {tab.label}
-                            {count > 0 && (
-                                <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full font-bold ${isActive ? 'bg-primary-100 text-primary-700' : 'bg-gray-200 text-gray-600'
-                                    }`}>
-                                    {count}
-                                </span>
-                            )}
+                            <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full font-bold ${isFull
+                                ? 'bg-green-100 text-green-700'
+                                : count > 0
+                                    ? (isActive ? 'bg-primary-100 text-primary-700' : 'bg-gray-200 text-gray-600')
+                                    : 'bg-gray-200 text-gray-400'
+                                }`}>
+                                {count}/{limit}
+                            </span>
                         </button>
                     );
                 })}
@@ -517,13 +564,18 @@ const MenuBuilder = ({ bookingData, updateBooking, onNext, onBack }) => {
                         .map(dish => {
                             const isSelected = selections[activeTab]?.includes(dish.id);
                             const cost = getDishCost(dish);
+                            const categoryCount = selections[activeTab]?.length || 0;
+                            const categoryLimit = CATEGORY_LIMITS[activeTab] || 5;
+                            const isLimitReached = !isSelected && categoryCount >= categoryLimit;
 
                             return (
                                 <div
                                     key={dish.id}
                                     className={`relative rounded-xl overflow-hidden border-2 transition-all duration-200 ${isSelected
                                         ? 'border-primary-500 bg-primary-50 shadow-md'
-                                        : 'border-gray-100 bg-white hover:border-gray-200'
+                                        : isLimitReached
+                                            ? 'border-gray-100 bg-gray-50 opacity-50'
+                                            : 'border-gray-100 bg-white hover:border-gray-200'
                                         }`}
                                 >
                                     <div className="flex items-start gap-4 p-4">
@@ -560,12 +612,15 @@ const MenuBuilder = ({ bookingData, updateBooking, onNext, onBack }) => {
 
                                         <button
                                             onClick={() => toggleDish(activeTab, dish.id)}
+                                            disabled={isLimitReached}
                                             className={`flex-shrink-0 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wide transition-all ${isSelected
                                                 ? 'bg-red-100 text-red-600 hover:bg-red-200'
-                                                : 'bg-primary-600 text-white hover:bg-primary-700'
+                                                : isLimitReached
+                                                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                                    : 'bg-primary-600 text-white hover:bg-primary-700'
                                                 }`}
                                         >
-                                            {isSelected ? 'Remove' : 'Add'}
+                                            {isSelected ? 'Remove' : isLimitReached ? 'Full' : 'Add'}
                                         </button>
                                     </div>
                                 </div>

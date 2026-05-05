@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { router } from '@inertiajs/react';
 import { useAuth } from '../../context/AuthContext';
 
 const FoodTasting = () => {
     const { user } = useAuth();
-    const navigate = useNavigate();
     const [formData, setFormData] = useState({
         guest_name: user ? user.username : '',
         guest_email: '',
@@ -30,8 +29,6 @@ const FoodTasting = () => {
             const headers = {
                 'Content-Type': 'application/json',
             };
-            if (token) {
-                }
 
             const response = await fetch('/api/food-tasting', {
                 method: 'POST',
@@ -44,7 +41,7 @@ const FoodTasting = () => {
             if (response.ok) {
                 setMessage({ type: 'success', text: 'Food tasting scheduled successfully!' });
                 if (user) {
-                    setTimeout(() => navigate('/dashboard/client'), 2000);
+                    setTimeout(() => router.get('/dashboard/client'), 2000);
                 } else {
                     setFormData({
                         guest_name: '',

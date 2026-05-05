@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, router } from '@inertiajs/react';
 import { GALLERY_IMAGES } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
 
@@ -23,7 +23,7 @@ const HERO_SLIDES = [
 
 const LandingPage = () => {
     const { user, logout } = useAuth();
-    const navigate = useNavigate();
+
     const [scrolled, setScrolled] = useState(false);
     const [currentSlide, setCurrentSlide] = useState(0);
 
@@ -54,7 +54,6 @@ const LandingPage = () => {
 
     const navLinks = [
         { name: 'Home', path: '/' },
-        { name: 'Book', path: user ? '/book' : '/register' },
         { name: 'Menu', path: user ? '/menu' : '/register' },
         { name: 'About', path: '#about' },
         { name: 'Contact', path: '#contact' },
@@ -78,7 +77,7 @@ const LandingPage = () => {
                             {navLinks.map((link) => (
                                 <Link
                                     key={link.name}
-                                    to={link.path}
+                                    href={link.path}
                                     className="text-white hover:text-yellow-400 font-medium text-sm uppercase tracking-wider transition-colors"
                                 >
                                     {link.name}
@@ -91,7 +90,7 @@ const LandingPage = () => {
                                 <div className="flex items-center space-x-4">
                                     <span className="text-white text-sm mr-2">Hello, {user.username}</span>
                                     <Link
-                                        to={
+                                        href={
                                             user.role === 'Client' ? '/dashboard/client' :
                                                 user.role === 'Marketing' ? '/dashboard/ops' :
                                                     user.role === 'Accounting' ? '/dashboard/finance' :
@@ -110,11 +109,11 @@ const LandingPage = () => {
                                 </div>
                             ) : (
                                 <div className="flex items-center space-x-4">
-                                    <Link to="/login" className="text-white hover:text-yellow-400 text-sm font-medium uppercase tracking-wider">
+                                    <Link href="/login" className="text-white hover:text-yellow-400 text-sm font-medium uppercase tracking-wider">
                                         Login
                                     </Link>
                                     <Link
-                                        to="/register"
+                                        href="/register"
                                         className="bg-yellow-500 hover:bg-yellow-400 text-red-900 font-bold py-2 px-6 rounded-full text-xs uppercase tracking-wider transition-transform transform hover:scale-105 shadow-lg"
                                     >
                                         Register
@@ -161,7 +160,7 @@ const LandingPage = () => {
                         {HERO_SLIDES[currentSlide].subtitle}
                     </p>
                     <button
-                        onClick={() => navigate(user ? '/book' : '/register')}
+                        onClick={() => router.get(user ? '/book' : '/register')}
                         className="bg-yellow-500 hover:bg-yellow-400 text-red-900 font-bold py-4 px-10 rounded-lg shadow-xl transition-transform transform hover:scale-105 uppercase tracking-wide text-sm"
                     >
                         Book Now

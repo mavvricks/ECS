@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { router } from '@inertiajs/react';
 import { PACKAGES, DISHES } from '../data/mockData';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area, ScatterChart, Scatter, ZAxis } from 'recharts';
 
 const DashboardAdmin = () => {
     const { user, logout } = useAuth();
-    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('overview');
 
     // ==========================================
@@ -87,8 +86,7 @@ const DashboardAdmin = () => {
     const [toast, setToast] = useState(null);
 
     const handleLogout = () => {
-        logout();
-        navigate('/login');
+        router.post('/logout');
     };
 
     const showToast = (message, type = 'success') => {
